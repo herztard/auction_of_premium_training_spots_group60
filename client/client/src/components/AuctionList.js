@@ -1,116 +1,68 @@
 import React, { useState, useEffect } from 'react';
+import { Row, Col, Alert, Spinner } from 'react-bootstrap';
 import { useWeb3 } from '../contexts/Web3Context';
-import { getAllAuctions } from '../utils/contractHelpers';
-import AuctionItem from './AuctionItem';
+import AuctionCard from './AuctionCard';
 
 const AuctionList = () => {
-  const { provider, isConnected } = useWeb3();
+  const { contract, account } = useWeb3();
   const [auctions, setAuctions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const fetchAuctions = async () => {
-    if (!provider) {
-      setAuctions([]);
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const fetchedAuctions = await getAllAuctions(provider);
-      setAuctions(fetchedAuctions);
-      setError('');
-    } catch (err) {
-      console.error('Error fetching auctions:', err);
-      setError('Failed to load auctions. Please try again later.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Fetch auctions on initial load and whenever provider changes
   useEffect(() => {
-    if (provider) {
+    const fetchAuctions = async () => {
+      setLoading(true);
+      setError('');
+      
+      try {
+        if (contract) {
+          const activeAuctions = await contract.getActiveAuctions();
+          setAuctions(activeAuctions.map(id => Number(id)));
+        }
+      } catch (error) {
+        console.error('Error fetching auctions:', error);
+        setError('Failed to load auctions. The contract might not be properly deployed.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (contract) {
       fetchAuctions();
+    } else {
+      setLoading(false);
     }
-  }, [provider]);
-
-  // Sample data for when we don't have a provider yet
-  const sampleAuctions = [
-    {
-      tokenId: 1,
-      name: "Private Boxing Session",
-      imageUrl: "https://images.unsplash.com/photo-1549824506-b7045acb4489",
-      coachName: "Mike Tyson",
-      trainingDate: "2023-12-15, 10:00 AM",
-      description: "One-on-one boxing training session with the legend himself.",
-      location: "New York City",
-      highestBid: { toString: () => "500000000000000000" },
-      highestBidder: "0x0000000000000000000000000000000000000000",
-      isActive: true
-    },
-    {
-      tokenId: 2,
-      name: "Swimming Masterclass",
-      imageUrl: "https://images.unsplash.com/photo-1560090995-dff1c50eed56",
-      coachName: "Michael Phelps",
-      trainingDate: "2023-12-20, 2:00 PM",
-      description: "Learn swimming techniques from the Olympic champion.",
-      location: "Los Angeles",
-      highestBid: { toString: () => "750000000000000000" },
-      highestBidder: "0x0000000000000000000000000000000000000000",
-      isActive: true
-    },
-    {
-      tokenId: 3,
-      name: "Tennis Pro Training",
-      imageUrl: "https://images.unsplash.com/photo-1595435934249-5df7ed86e1c0",
-      coachName: "Serena Williams",
-      trainingDate: "2023-12-18, 11:00 AM",
-      description: "Exclusive tennis training session with the tennis legend.",
-      location: "Miami",
-      highestBid: { toString: () => "600000000000000000" },
-      highestBidder: "0x0000000000000000000000000000000000000000",
-      isActive: true
-    }
-  ];
-
-  const displayAuctions = auctions.length > 0 ? auctions : (isConnected ? [] : sampleAuctions);
+  }, [contract, account]);
 
   return (
-    <div className="container py-5">
-      <h2 className="text-center mb-4">Available Training Sessions</h2>
-      
-      {!isConnected && (
-        <div className="alert alert-warning mb-4">
-          <strong>Note:</strong> Connect your wallet to see real auctions and place bids. 
-          Showing sample data for preview.
-        </div>
-      )}
+    <div className="mb-5">
+      <h2 className="text-center mb-4">Available Training Spots</h2>
       
       {loading ? (
         <div className="text-center py-5">
-          <div className="spinner-border text-primary" role="status">
+          <Spinner animation="border" role="status" variant="primary">
             <span className="visually-hidden">Loading...</span>
-          </div>
+          </Spinner>
           <p className="mt-3">Loading auctions...</p>
         </div>
       ) : error ? (
-        <div className="alert alert-danger">{error}</div>
-      ) : displayAuctions.length === 0 ? (
-        <div className="alert alert-info">No auctions available at the moment.</div>
+        <Alert variant="danger">{error}</Alert>
+      ) : !contract ? (
+        <Alert variant="warning" className="text-center">
+          Contract not properly initialized. Please make sure you're connected to the Sepolia network and the contract is deployed.
+        </Alert>
+      ) : auctions.length === 0 ? (
+        <Alert variant="info" className="text-center">
+          No active auctions available at the moment.
+        </Alert>
       ) : (
-        <div className="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-          {displayAuctions.map((auction) => (
-            <div className="col" key={auction.tokenId.toString()}>
-              <AuctionItem
-                auction={auction}
-                refreshAuctions={fetchAuctions}
-              />
-            </div>
+        <Row>
+          {auctions.map((tokenId) => (
+            <Col key={tokenId} md={6} lg={4}>
+              <AuctionCard tokenId={tokenId} />
+            </Col>
           ))}
-        </div>
+        </Row>
       )}
     </div>
   );

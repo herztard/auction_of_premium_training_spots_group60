@@ -1,44 +1,53 @@
 import React from 'react';
+import { Navbar, Container, Button, Badge } from 'react-bootstrap';
 import { useWeb3 } from '../contexts/Web3Context';
 
 const Header = () => {
-  const { isConnected, account, connectWallet, disconnectWallet } = useWeb3();
+  const { account, connectWallet, disconnectWallet, isOwner } = useWeb3();
 
-  // Helper function to truncate the address for display
-  const truncateAddress = (address) => {
+  const formatAddress = (address) => {
     if (!address) return '';
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+    return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
   };
 
   return (
-    <nav className="navbar navbar-expand-lg navbar-dark bg-dark">
-      <div className="container">
-        <a className="navbar-brand" href="/">Premium Training Auctions</a>
-        
-        <div className="ms-auto">
-          {isConnected ? (
+    <Navbar bg="dark" variant="dark" expand="lg" className="mb-4">
+      <Container>
+        <Navbar.Brand href="#home">
+          Training Spot Auctions
+          {isOwner && (
+            <Badge bg="warning" text="dark" className="ms-2">
+              Admin
+            </Badge>
+          )}
+        </Navbar.Brand>
+        <Navbar.Toggle />
+        <Navbar.Collapse className="justify-content-end">
+          {account ? (
             <div className="d-flex align-items-center">
               <span className="text-light me-3">
-                Connected: {truncateAddress(account)}
+                {formatAddress(account)}
               </span>
-              <button
-                className="btn btn-outline-danger"
+              <Button 
+                variant="outline-danger" 
+                size="sm"
                 onClick={disconnectWallet}
               >
                 Disconnect
-              </button>
+              </Button>
             </div>
           ) : (
-            <button
-              className="btn btn-primary"
+            <Button 
+              variant="primary" 
+              size="sm"
               onClick={connectWallet}
             >
               Connect Wallet
-            </button>
+            </Button>
           )}
-        </div>
-      </div>
-    </nav>
+        </Navbar.Collapse>
+      </Container>
+    </Navbar>
   );
 };
 
