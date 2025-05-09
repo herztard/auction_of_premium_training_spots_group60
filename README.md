@@ -15,7 +15,7 @@
 
 `/contract` - blockchain part (contract code, deployment code, other configurations) 
 <br>
-`/gym` - frontend part
+`/client/client` - frontend part
 
 
 ### Blockchain Part
