@@ -28,7 +28,16 @@ export const Web3Provider = ({ children }) => {
         const sepoliaChainId = '0xaa36a7';
         
         if (network.chainId.toString(16) !== sepoliaChainId.replace('0x', '')) {
-          console.warn('Please connect to the Sepolia test network');
+          try {
+            await window.ethereum.request({
+              method: 'wallet_switchEthereumChain',
+              params: [{ chainId: sepoliaChainId }],
+            });
+            console.log("Successfully switched to Sepolia network");
+          } catch (switchError) {
+            console.error("Failed to switch network:", switchError);
+            throw new Error('Please connect to the Sepolia test network');
+          }
         }
         
         const signer = ethProvider.getSigner();
@@ -63,12 +72,13 @@ export const Web3Provider = ({ children }) => {
           setContract(null);
         }
       } else {
-        console.error('Please install MetaMask!');
+        throw new Error('Please install MetaMask!');
       }
     } catch (error) {
       console.error('Error initializing web3', error);
       setContract(null);
       setIsOwner(false);
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -77,46 +87,106 @@ export const Web3Provider = ({ children }) => {
   const connectWallet = async () => {
     try {
       if (window.ethereum) {
-        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        console.log("Attempting to connect wallet...");
+        
+        try {
+          await window.ethereum.request({ method: 'eth_requestAccounts' });
+          console.log("Account access granted");
+        } catch (requestError) {
+          console.error("Account request error:", requestError);
+          throw new Error('Failed to connect: ' + requestError.message);
+        }
+        
         await initializeEthereum();
       } else {
-        alert('Please install MetaMask to use this application!');
+        throw new Error('Please install MetaMask to use this application!');
       }
     } catch (error) {
       console.error('Error connecting to wallet', error);
+      throw error;
     }
   };
   
-  const disconnectWallet = () => {
-    setAccount(null);
-    setContract(null);
-    setIsOwner(false);
+  const disconnectWallet = async () => {
+    try {
+      if (window.ethereum) {
+        try {
+          await window.ethereum.request({
+            method: "wallet_revokePermissions",
+            params: [{ eth_accounts: {} }]
+          });
+          console.log("Successfully revoked permissions");
+        } catch (revokeError) {
+          console.log("Revoke permissions not supported, using alternative method", revokeError);
+          // If revoke permissions is not supported, we'll just clear our state
+        }
+      }
+      
+      // Clear all state
+      setAccount(null);
+      setContract(null);
+      setIsOwner(false);
+      setProvider(null);
+      
+      // Reload the page to ensure clean state
+      window.location.reload();
+    } catch (error) {
+      console.error('Error during disconnect:', error);
+      // Even if there's an error, we should still clear the state
+      setAccount(null);
+      setContract(null);
+      setIsOwner(false);
+      setProvider(null);
+    }
   };
   
   useEffect(() => {
     if (window.ethereum) {
-      window.ethereum.on('accountsChanged', () => {
-        initializeEthereum();
-      });
+      // Handle account changes
+      const handleAccountsChanged = (accounts) => {
+        if (accounts.length === 0) {
+          // User disconnected their wallet
+          setAccount(null);
+          setContract(null);
+          setIsOwner(false);
+          setProvider(null);
+        } else {
+          // Account changed, reinitialize
+          initializeEthereum();
+        }
+      };
       
-      window.ethereum.on('chainChanged', () => {
+      // Handle chain changes
+      const handleChainChanged = () => {
         window.location.reload();
-      });
-    }
-    
-    if (window.ethereum && window.ethereum.selectedAddress) {
-      initializeEthereum();
+      };
+      
+      window.ethereum.on('accountsChanged', handleAccountsChanged);
+      window.ethereum.on('chainChanged', handleChainChanged);
+      
+      // Check if already connected
+      if (window.ethereum.selectedAddress) {
+        initializeEthereum();
+      } else {
+        setIsLoading(false);
+      }
+      
+      // Cleanup listeners
+      return () => {
+        if (window.ethereum) {
+          window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
+          window.ethereum.removeListener('chainChanged', handleChainChanged);
+        }
+      };
     } else {
       setIsLoading(false);
     }
-    
-    return () => {
-      if (window.ethereum) {
-        window.ethereum.removeListener('accountsChanged', initializeEthereum);
-        window.ethereum.removeListener('chainChanged', () => window.location.reload());
-      }
-    };
   }, []);
+  
+  const formatAddress = (address) => {
+    if (!address) return '';
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  };
   
   const value = {
     account,
@@ -126,7 +196,8 @@ export const Web3Provider = ({ children }) => {
     isLoading,
     network,
     connectWallet,
-    disconnectWallet
+    disconnectWallet,
+    formatAddress
   };
   
   return <Web3Context.Provider value={value}>{children}</Web3Context.Provider>;
