@@ -260,7 +260,6 @@ contract TrainingSpotNFT is ERC721, ERC721URIStorage, Ownable {
             }
         }
         
-        // Then populate the array
         uint256[] memory activeAuctions = new uint256[](activeCount);
         uint256 index = 0;
         
