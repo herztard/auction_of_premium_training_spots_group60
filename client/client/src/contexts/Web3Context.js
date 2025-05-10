@@ -14,12 +14,18 @@ export const Web3Provider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [network, setNetwork] = useState(null);
   
-  const initializeEthereum = async () => {
+  const initializeEthereum = async (skipAccountRequest = false) => {
     setIsLoading(true);
     
     try {
       if (window.ethereum) {
         const ethProvider = new ethers.providers.Web3Provider(window.ethereum);
+        
+        // Only request accounts if not skipping (for initial auto-connect)
+        if (!skipAccountRequest) {
+          await window.ethereum.request({ method: 'eth_requestAccounts' });
+        }
+        
         setProvider(ethProvider);
         
         const network = await ethProvider.getNetwork();
@@ -40,36 +46,45 @@ export const Web3Provider = ({ children }) => {
           }
         }
         
-        const signer = ethProvider.getSigner();
-        const address = await signer.getAddress();
-        setAccount(address);
-        
-        const deployedNetwork = TrainingSpotNFT.networks[network.chainId];
-        
-        if (deployedNetwork && deployedNetwork.address && deployedNetwork.address !== "0x0000000000000000000000000000000000000000") {
-          try {
-            const trainingSpotContract = new ethers.Contract(
-              deployedNetwork.address,
-              TrainingSpotNFT.abi,
-              signer
-            );
-            
-            setContract(trainingSpotContract);
-            
+        // Get the current accounts
+        const accounts = await ethProvider.listAccounts();
+        if (accounts.length > 0) {
+          const signer = ethProvider.getSigner();
+          const address = accounts[0];
+          setAccount(address);
+          
+          const deployedNetwork = TrainingSpotNFT.networks[network.chainId];
+          
+          if (deployedNetwork && deployedNetwork.address && deployedNetwork.address !== "0x0000000000000000000000000000000000000000") {
             try {
-              const contractOwner = await trainingSpotContract.owner();
-              setIsOwner(contractOwner.toLowerCase() === address.toLowerCase());
-            } catch (ownerError) {
-              console.error('Error checking contract owner:', ownerError);
-              setIsOwner(false);
+              const trainingSpotContract = new ethers.Contract(
+                deployedNetwork.address,
+                TrainingSpotNFT.abi,
+                signer
+              );
+              
+              setContract(trainingSpotContract);
+              
+              try {
+                const contractOwner = await trainingSpotContract.owner();
+                setIsOwner(contractOwner.toLowerCase() === address.toLowerCase());
+              } catch (ownerError) {
+                console.error('Error checking contract owner:', ownerError);
+                setIsOwner(false);
+              }
+            } catch (contractError) {
+              console.error('Error initializing contract:', contractError);
+              setContract(null);
             }
-          } catch (contractError) {
-            console.error('Error initializing contract:', contractError);
+          } else {
+            console.error('Contract not deployed on the current network');
             setContract(null);
           }
         } else {
-          console.error('Contract not deployed on the current network');
+          // No accounts found, clear state
+          setAccount(null);
           setContract(null);
+          setIsOwner(false);
         }
       } else {
         throw new Error('Please install MetaMask!');
@@ -88,16 +103,7 @@ export const Web3Provider = ({ children }) => {
     try {
       if (window.ethereum) {
         console.log("Attempting to connect wallet...");
-        
-        try {
-          await window.ethereum.request({ method: 'eth_requestAccounts' });
-          console.log("Account access granted");
-        } catch (requestError) {
-          console.error("Account request error:", requestError);
-          throw new Error('Failed to connect: ' + requestError.message);
-        }
-        
-        await initializeEthereum();
+        await initializeEthereum(false);
       } else {
         throw new Error('Please install MetaMask to use this application!');
       }
@@ -118,7 +124,6 @@ export const Web3Provider = ({ children }) => {
           console.log("Successfully revoked permissions");
         } catch (revokeError) {
           console.log("Revoke permissions not supported, using alternative method", revokeError);
-          // If revoke permissions is not supported, we'll just clear our state
         }
       }
       
@@ -127,6 +132,9 @@ export const Web3Provider = ({ children }) => {
       setContract(null);
       setIsOwner(false);
       setProvider(null);
+      
+      // Store disconnected state
+      localStorage.setItem('walletDisconnected', 'true');
       
       // Reload the page to ensure clean state
       window.location.reload();
@@ -141,18 +149,44 @@ export const Web3Provider = ({ children }) => {
   };
   
   useEffect(() => {
+    const checkConnection = async () => {
+      if (window.ethereum) {
+        // Check if user manually disconnected
+        const wasDisconnected = localStorage.getItem('walletDisconnected') === 'true';
+        
+        if (!wasDisconnected) {
+          const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+          if (accounts.length > 0) {
+            // User has previously connected their wallet and hasn't disconnected
+            try {
+              await initializeEthereum(true);
+            } catch (error) {
+              console.error('Error auto-connecting:', error);
+              setIsLoading(false);
+            }
+            return;
+          }
+        }
+      }
+      setIsLoading(false);
+    };
+    
+    checkConnection();
+    
     if (window.ethereum) {
       // Handle account changes
-      const handleAccountsChanged = (accounts) => {
+      const handleAccountsChanged = async (accounts) => {
         if (accounts.length === 0) {
           // User disconnected their wallet
           setAccount(null);
           setContract(null);
           setIsOwner(false);
           setProvider(null);
+          localStorage.setItem('walletDisconnected', 'true');
         } else {
           // Account changed, reinitialize
-          initializeEthereum();
+          localStorage.removeItem('walletDisconnected');
+          await initializeEthereum(true);
         }
       };
       
@@ -164,13 +198,6 @@ export const Web3Provider = ({ children }) => {
       window.ethereum.on('accountsChanged', handleAccountsChanged);
       window.ethereum.on('chainChanged', handleChainChanged);
       
-      // Check if already connected
-      if (window.ethereum.selectedAddress) {
-        initializeEthereum();
-      } else {
-        setIsLoading(false);
-      }
-      
       // Cleanup listeners
       return () => {
         if (window.ethereum) {
@@ -178,8 +205,6 @@ export const Web3Provider = ({ children }) => {
           window.ethereum.removeListener('chainChanged', handleChainChanged);
         }
       };
-    } else {
-      setIsLoading(false);
     }
   }, []);
   

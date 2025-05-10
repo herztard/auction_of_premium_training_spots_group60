@@ -22,7 +22,7 @@ const AuctionItem = ({ auction, refreshAuctions }) => {
     isActive
   } = auction;
 
-  const isOwner = highestBidder.toLowerCase() === account?.toLowerCase();
+  const isHighestBidder = account && highestBidder && highestBidder.toLowerCase() === account.toLowerCase();
   const currentBidEth = ethers.utils.formatEther(highestBid.toString());
 
   const handleBidSubmit = async (e) => {
@@ -113,6 +113,9 @@ const AuctionItem = ({ auction, refreshAuctions }) => {
         <div className="d-flex justify-content-between align-items-center mb-3">
           <div>
             <strong>Current Bid:</strong> {currentBidEth} ETH
+            {isHighestBidder && (
+              <span className="badge bg-info ms-2">Your bid</span>
+            )}
           </div>
           {isActive ? (
             <span className="badge bg-success">Active</span>
@@ -149,7 +152,12 @@ const AuctionItem = ({ auction, refreshAuctions }) => {
           </div>
         ) : (
           <div className="alert alert-info">
-            Auction has ended. Winner: {isOwner ? 'You' : highestBidder.slice(0, 6) + '...' + highestBidder.slice(-4)}
+            Auction has ended. 
+            {isHighestBidder ? (
+              <strong> Congratulations! You won this auction!</strong>
+            ) : (
+              " You didn't win this auction."
+            )}
           </div>
         )}
         
