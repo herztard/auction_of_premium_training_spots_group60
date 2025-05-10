@@ -50,4 +50,31 @@ PRIVATE_key may be taken from Metamask: open extension ---> tap on triple dots -
    npx hardhat --network sepolia run scripts/deploy.js   
    ```
 
-...
+
+5. In output of previous step will be displayed addresses of TrainingSpotNFT contract, save them and put them into next files `client/client/src/contracts/TrainingSpotNFT.json` and `client/client/src/utils/contractHelpers.js` by replacing existing ones.
+```javascript
+const CONTRACT_ADDRESS = "<your-training-spot-nft-address>";
+```
+```json
+  "networks": {
+    "11155111": {
+      "address": "<your-training-spot-nft-address>"
+    }
+  }
+```
+
+
+### Frontend Part
+Run client to interact with contracts
+1. Enter the gym directory
+    ```bash
+    cd client/client 
+    ```
+2. Install npm dependencies
+    ```bash
+    npm install
+    ```
+3. Run client
+   ```bash
+   npm start 
+   ```
