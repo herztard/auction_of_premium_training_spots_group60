@@ -206,7 +206,6 @@ contract TrainingSpotNFT is ERC721, ERC721URIStorage, Ownable {
         emit BidPlaced(tokenId, msg.sender, msg.value);
     }
 
-    // End an auction manually (can be called by owner)
     function endAuction(uint256 tokenId) public {
         Auction storage auction = tokenIdToAuction[tokenId];
         
