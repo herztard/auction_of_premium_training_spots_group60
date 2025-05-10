@@ -170,18 +170,12 @@ const AuctionCard = ({ tokenId }) => {
         <hr />
         
         <div className="d-flex justify-content-between align-items-center mb-2">
-          <span className="fw-bold">Current bid:</span>
+          <span className="fw-bold">Current bid {auction.highestBidder === account ? "BY YOU" : "NOT BY YOU"}:</span>
           <span className="fs-5">
             {auction.highestBid && ethers.utils.formatEther(auction.highestBid)} ETH
           </span>
         </div>
 
-        <div className="d-flex justify-content-between align-items-center mb-2">
-          <span className="fw-bold">Highest Bidder:</span>
-          <span className="fs-5">
-            {auction.highestBidder}
-          </span>
-        </div>
         
         <div className="d-flex justify-content-between align-items-center mb-3">
           <span className="fw-bold">Time left:</span>
