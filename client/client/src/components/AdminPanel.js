@@ -14,6 +14,8 @@ const AdminPanel = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const now = new Date();
+  const minDateTime = now.toISOString().slice(0,16);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -106,6 +108,7 @@ const AdminPanel = () => {
                   value={formData.trainingDate}
                   onChange={handleChange}
                   required
+                  min={minDateTime}
                 />
               </Form.Group>
             </Col>
