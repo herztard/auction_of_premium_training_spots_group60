@@ -87,7 +87,7 @@ const AuctionCard = ({ tokenId }) => {
 
       const ethAmount = ethers.utils.parseEther(bidAmount);
       
-      if (auction && ethAmount <= auction.highestBid) {
+      if (auction && ethAmount.lte(auction.highestBid)) {
         setError('Bid must be higher than current highest bid');
         return;
       }
